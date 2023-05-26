@@ -1,0 +1,600 @@
+---
+title: "MMM_with_Robyn"
+format:
+  html:
+    theme: default
+    toc: true
+    toc-title: 目次
+    number-sections: true
+    self-contained: true
+execute: 
+  echo: true     # コードを出力に含めるか
+  cache: false   # 実行結果のキャッシュを保持するか
+  prompt: false  # コードの先頭に">"を表示するか
+  tidy: false    # コードの整形を行うか
+  comment: NA    # コードの先頭に付加される文字列
+  message: false # コードが出力するメッセージを含めるか
+  warning: false # コードが出力する警告を含めるか
+  error: false   # エラーメッセージを表示するか
+editor_options: 
+  chunk_output_type: console
+---
+
+# はじめに
+
+-   この資料はRobynでのMMMに関するドキュメントです
+
+# 分析環境
+
+## Python
+
+-   `nevergrad`用にminicondaをインストール
+
+-   `robyn`用の仮想環境を作成
+
+```{r}
+#| eval: false
+
+# condaでrobyn用の仮想環境を作成(初回は実行)
+library(reticulate)
+install_miniconda()
+conda_create('mmm_robyn')
+conda_install(envname = 'mmm_robyn', packages = 'nevergrad', pip = TRUE)
+```
+
+```{r}
+# reticulateでconda環境を指定
+library(reticulate)
+# Sys.setenv(RETICULATE_PYTHON = "/home/rstudio/.local/share/r-miniconda/envs/mmm_robyn/bin/python") # for rstudio
+Sys.setenv(RETICULATE_PYTHON = "/root/.local/share/r-miniconda/envs/mmm_robyn/bin/python") # for vscode
+use_miniconda('mmm_robyn', required = TRUE) # py_discover_config()
+```
+
+## R
+
+-   `Robyn`に必要な諸々の設定
+
+```{r}
+# 並列処理用（マルチコアの設定）
+Sys.setenv(R_FUTURE_FORK_ENABLE = "true")
+options(future.fork.enable = TRUE)
+
+# ライブラリ
+if (!require("pacman")) install.packages("pacman"); library(pacman)
+p_load(tidyverse)
+p_load(magrittr)
+p_load(janitor)
+p_load(skimr)
+p_load(Robyn) # packageVersion("Robyn")
+p_load(reactable)
+p_load(DT)
+p_load(plotly)
+
+# モデリング関連のディレクトリ
+path_model <- "model/"
+```
+
+# データ
+
+サンプルデータを用意
+
+-   I = Impression
+
+-   S = Spend
+
+-   B = Baseline
+
+```{r}
+# シュミレーションデータ(ドイツの広告)
+dat = 
+  dt_simulated_weekly %>% 
+  tibble() %>% 
+  clean_names() %>% # 列名
+  mutate(date = date %>% as.POSIXct()) # 日付の型
+
+dat %>% head() %>% reactable()
+dat %>% skim()
+dat %>% colnames()
+
+# 休日データ
+dat_holiday = 
+  dt_prophet_holidays %>% 
+  tibble() %>% 
+  clean_names() %>% 
+  mutate(ds = ds %>% as.POSIXct()) # 日付の型
+
+dat_holiday %>% skim()
+dat_holiday %>% distinct(country) %>% datatable()
+```
+
+# 基礎集計/可視化
+
+## 目的変数
+
+```{r}
+p_kgi <- 
+  dat %>% 
+  ggplot() + 
+  aes(x = date, y = revenue) +
+  geom_point() + 
+  geom_smooth() + 
+  theme_minimal()
+
+p_kgi %>% ggplotly()
+```
+
+```{r}
+knitr::opts_chunk$set(eval = FALSE)
+```
+
+## 説明変数
+
+# モデリング
+
+## インプット
+
+-   robyn_inputs関数でモデリングのオプションを指定
+
++-------------+-----------------+-----------------------------------------------------------------------+
+| option      | description     | remark                                                                |
++=============+=================+=======================================================================+
+| dt_input    | -   入力データ  | -   トレンドや季節性を推定するため、1年以上のデータセットの使用が推奨 |
++-------------+-----------------+-----------------------------------------------------------------------+
+|             |                 |                                                                       |
++-------------+-----------------+-----------------------------------------------------------------------+
+|             |                 |                                                                       |
++-------------+-----------------+-----------------------------------------------------------------------+
+
+: roby_input()
+
+-   ：データフレーム。
+
+-   dt_holidays：休日データ(日本の休日は別途用意が必要)
+
+-   date_var：文字列。日付変数の列名。日次/週次/月次に対応。週次では週の始まりが月曜か日曜。デフォルトは日付の自動検出。
+
+-   dep_var：文字列。目的変数の列名。1つだけ指定可能。
+
+-   dep_var_type：文字列。目的変数のタイプ("revenue", "conversion")
+
+-   prophet_vars：文字ベクトル。"trend", "season", "weekday", "holiday"のいずれかを含む。大文字と小文字は区別される。日次データの場合は全て、週次以上の粒度では "trend", "season", "holiday"を強く推奨。
+
+-   prophet_signs：文字ベクトル。"default", "positive", "negative" のいずれかを選択。Prophet変数の係数の符号。prophet_vars と同じ順序、同じ長さ。
+
+-   prophet_country：文字列。国コードを指定。
+
+-   context_vars：文字ベクトル。ベースラインに影響する変数。競合の価格やプロモーション、気温、失業率など。
+
+-   context_signs：文字ベクトル。context_vars の係数の符号("default", "positive", "negative")
+
+-   paid_media_spends：文字ベクトル。広告費変数を指定。paid_media_varsで広告接触指標を使用する場合、ROASの計算のために対応する広告費変数を指定。
+
+-   paid_media_vars：文字ベクトル。広告費以外の広告接触指標(インプレッション、クリック、GRPなど)がある場合は使用を推奨。サブチャンネルに分割しても良い(fb_retargeting、fb_prospectingなど)。
+
+-   paid_media_signs：文字ベクトル。paid_media_varsの係数の符号を指定。デフォルトでは"positive"。
+
+-   organic_vars：文字ベクトル。オーガニック変数(ニュースレター配信、プッシュ通知、ソーシャルメディアへの投稿などの費用を伴わないマーケティング変数)。
+
+-   organic_signs：文字ベクトル。organic_signsの係数の符号を指定。デフォルトでは"positive"。
+
+-   factor_vars：文字ベクトル。organic_varsやcontext_vars で指定された変数のうち、どの変数をfactorとして扱うかを指定。主にevent用。
+
+-   adstock：文字列。アドストックのタイプを指定("geometric", "weibull_cdf", "weibull_pdf")。詳細は別途解説。
+
+-   hyperparameters：リスト。ハイパーパラメータの下限値と上限値を指定。リスト内の要素名はhyper_names()の出力と同一。ハイパーパラメータ値を固定するには、1つの値のみを指定。
+
+-   window_start, window_end：文字列。モデリング期間の開始日と終了日を設定。アドストック効果を考慮するため、データセットの最初の日付で開始しないことを推奨。
+
+-   calibration_input：データフレーム。キャリブレーションするための実験結果がある場合は指定。別途解説。
+
+-   ...：Prophetのオプションも指定可能。
+
+### アドストック
+
+```{r}
+plot_adstock(plot = TRUE)
+```
+
+-   広告の残存効果
+
+-   Geometric：パラメータ1つでシンプルに減衰していく効果を表現。
+
+-   Weibull：ワイブル分布。パラメータ2つでより複雑な残存を表現。推定コストが大きくに時間が掛かる。
+
+<!-- ワイブルアドトックは2パラメトリック関数であるため柔軟性が高いが、従来の幾何学的1パラメトリック関数より時間がかかる。ワイブル関数の累積密度関数（CDF）は、C型とS型の両方で時間と共に減衰率を変えることができますが、ピーク値は常に最初の期間にとどまり、遅れの効果はありません。PDF (確率密度関数) は、shape >=1 のとき、最初の期間の後にピーク値が発生し、遅延効果を可能にします。plot_adstock()を実行すると、その違いを視覚的に見ることができます。時間推定: 幾何学的アドストックでは、8コアで2000反復 * 5試行で、30分未満で終了します。両ワイブルオプションは最大で2倍の時間がかかる。  -->
+
+### サチュレーション
+
+```{r}
+plot_saturation(plot = TRUE)
+```
+
+```{r}
+# インプット
+InputCollect <- robyn_inputs(
+  dt_input = dt_simulated_weekly,
+  dt_holidays = dt_prophet_holidays,
+  date_var = "DATE",
+  dep_var = "revenue",
+  dep_var_type = "revenue",
+  prophet_vars = c("trend", "season", "holiday"),
+  prophet_country = "DE", # 国をコードで指定、サンプルデータではドイツ
+  context_vars = c("competitor_sales_B", "events"),
+  paid_media_spends = c("tv_S", "ooh_S", "print_S", "facebook_S", "search_S"),
+  paid_media_vars = c("tv_S", "ooh_S", "print_S", "facebook_I", "search_clicks_P"),
+  organic_vars = c("newsletter"),
+  factor_vars = c("events"),
+  window_start = "2016-11-23",
+  window_end = "2018-08-22",
+  adstock = "geometric",
+)
+
+print(InputCollect)
+
+# hyper_names("geometric", InputCollect$all_media)
+
+# ハイパーパラメータ
+hyperparameters <- list(
+  facebook_S_alphas = c(0.5, 3),
+  facebook_S_gammas = c(0.3, 1),
+  facebook_S_thetas = c(0, 0.3),
+  print_S_alphas = c(0.5, 3),
+  print_S_gammas = c(0.3, 1),
+  print_S_thetas = c(0.1, 0.4),
+  tv_S_alphas = c(0.5, 3),
+  tv_S_gammas = c(0.3, 1),
+  tv_S_thetas = c(0.3, 0.8),
+  search_S_alphas = c(0.5, 3),
+  search_S_gammas = c(0.3, 1),
+  search_S_thetas = c(0, 0.3),
+  ooh_S_alphas = c(0.5, 3),
+  ooh_S_gammas = c(0.3, 1),
+  ooh_S_thetas = c(0.1, 0.4),
+  newsletter_alphas = c(0.5, 3),
+  newsletter_gammas = c(0.3, 1),
+  newsletter_thetas = c(0.1, 0.4)
+)
+
+# ハイパーパラメータの設定を追加
+InputCollect <- robyn_inputs(
+  InputCollect = InputCollect, 
+  hyperparameters = hyperparameters
+  )
+  
+print(InputCollect)
+```
+
+## 推定
+
+`robyn_run()`：robyn_input()をもとにrobyn_mmm()を実行
+
+-   InputCollect：リスト。入力パラメータ。robyn_objectが提供されていない場合は必須。古いモデルの結果を読み込むときのみ指定する。
+
+-   dt_hyper_fixed：古いモデルの結果をロードするとき場合に使用。保存されたpareto_hyperparameters.csvからハイパーパラメータが使用される。
+
+-   add_penalty_factor：論理値。nevergradで最適化するglmnetのpenalty.factorのハイパーパラメータを追加。
+
+-   refresh：論理値。robyn_refresh()で使用する場合はTRUE。
+
+-   seed：整数。nevergradを実行するときに再現性のある結果を得るために指定。
+
+-   outputs：論理値。robyn_outputs()で結果を処理するか否か。
+
+-   quiet：論理値。 メッセージを表示しないようにするか。
+
+-   cores：整数。デフォルトは parallel::detectCores() (最大コア数)
+
+-   trials：整数。nevergrad_algo = "TwoPointsDE"の場合、デフォルトで5回を推奨。
+
+-   iteration：整数。snevergrad_algo = "TwoPointsDE"の場合、デフォルトで2000を推奨。
+
+-   nevergrad_algo：nevergradのアルゴリズム("DE", "TwoPointsDE", "OnePlusOne", "DoubleFastGADiscreteOnePlusOne", "DiscreteOnePlusOne", "PortfolioDiscreteOnePlusOne", "NaiveTBPSA", "cGA", "RandomSearch")。
+
+-   intercept_sign：文字列。切片の符号("non_negative", "unconstrained)。デフォルトでは、切片が負の場合はinterceptを削除してモデルを再学習。大きな正の値を持つcontext_varsがある場合、intercept_signを"unconstrained "に変更。
+
+-   ...：robyn_outputs()に渡される追加パラメータ
+
+```{r}
+#| eval: false
+
+# モデルの推定
+OutputModels <- robyn_run(
+  InputCollect = InputCollect,
+  dt_hyper_fixed = NULL,
+  add_penalty_factor = FALSE,
+  refresh = FALSE,
+  seed = 123L,
+  outputs = FALSE,
+  quiet = FALSE,
+  cores = NULL,
+  trials = 5,
+  iterations = 2000,
+  nevergrad_algo = "TwoPointsDE",
+  intercept_sign = "non_negative"
+)
+
+OutputModels %>% write_rds("model/OutputModels.rds")
+```
+
+```{r}
+OutputModels = read_rds("model/OutputModels.rds")
+print(OutputModels)
+```
+
+# 結果の解釈
+
+## アウトプットを用意
+
+`robyn_output()`：robyn_run() のアウトプットにrobyn_plots(), robyn_csv(), robyn_clusters()を適用。
+
+-   inputCollect, OutputModels：robyn_run() の結果
+
+-   pareto_fronts：整数値。pareto_fronts = 1でNRMSEとDECOMP.RSSD のトレードオフで最良のモデル。値を増やすとモデルの候補が増える。
+
+-   calibration_constraint：数値。デフォルトは0.1で、0.01-0.1の範囲で指定。キャリブレーションを行う場合、0.1だと上位10位までを選択することになる。calibration_constraintが低ければ低いほど、キャリブレーションの精度が上がる。
+
+-   plot_folder：プロットを保存するためのパス。デフォルトはrobyn_objectと同じディレクトリに保存。
+
+-   plot_folder_sub：プロットを保存するためのサブパス。
+
+-   plot_pareto：FALSEでサマリのプロットと保存が無効に。
+
+-   csv_out："pareto" or "all"。デフォルトは "pareto"。"all"ですべてのイテレーションをcsvで出力。NULLを指定するとCSVへの出力はスキップ。
+
+-   clusters：モデルアウトプットにrobyn_clusters()を適用するか否か。
+
+-   select_model：サマリ&エクスポートするモデルをsolIDで指定。デフォルトはrobyn_clusters()のトップの結果。
+
+-   ui：UI用に追加の出力を保存するか。
+
+-   export：結果をローカルファイルに書き出すか。
+
+-   quiet：メッセージを表示するかどうか。
+
+-   ...：robyn_clusters()に渡されるパラメータ。
+
+```{r}
+#| eval: false
+
+# 一括でアウトプット
+OutputCollect <- robyn_outputs(
+  InputCollect,
+  OutputModels,
+  pareto_fronts = 3,
+  calibration_constraint = 0.1,
+  plot_folder = "model/",
+  plot_folder_sub = NULL,
+  plot_pareto = TRUE,
+  csv_out = "pareto",
+  clusters = TRUE,
+  select_model = "clusters",
+  ui = FALSE,
+  export = TRUE,
+  quiet = FALSE,
+)
+
+# 保存
+OutputCollect %>% write_rds("model/OutputCollect.rds")
+```
+
+```{r}
+OutputCollect = read_rds("model/OutputCollect.rds")
+print(OutputCollect)
+```
+
+`robyn_allocator()`：目的変数を最大化する広告変数の配分を計算。
+
+-   robyn_object：Robynオブジェクトのパス
+
+-   select_build：デフォルトは最新のモデルビルド。 select_build = 0は初期モデル。select_build = 1は最新のリフレッシュモデル。
+
+-   InputCollect, OutputCollect：robyn_objectがない場合は必要。
+
+-   select_model：モデルのSolIDで指定。
+
+-   optim_algo：デフォルトは "SLSQP_AUGLAG"(Sequential Least-Squares Quadratic Programming" と "Augmented Lagrangian")。または""MMA_AUGLAG""(Methods of Moving Asymptotes)。別途解説。
+
+https://nlopt.readthedocs.io/en/latest/NLopt_Algorithms/
+
+-   scenario："max_historical_response"で「過去の同じ平均支出レベルを与えられた場合の最適メディア支出配分」。"max_response_expected_spend"で「与えられた期間の将来の支出レベルの最適メディア支出配分」。
+
+-   expected_spend：将来の予想支出額。scenario = "max_response_expected_spend"の場合に指定。
+
+-   expected_spend_days：将来の支出期間。scenario = "max_response_expected_spend"の場合に指定。
+
+-   channel_constr_low, channel_constr_up：媒体ごとの支出の上下限(0.01-1.5推奨)。過去平均の何割かを表す。
+
+-   maxeval：最適化アルゴリズムの最大反復回数。デフォルトは100000。
+
+-   constr_mode："eq"または "ineq"。等式または不等式の制約。
+
+-   date_min, date_max：(0でない支出の)平均と総支出を計算するための期間。デフォルトではウィンドウ内のすべての日付。
+
+-   export：結果をローカルファイルに書き出すか。
+
+-   quiet：メッセージを表示しないようにするか。
+
+-   ui：UI用に追加の出力を保存するか
+
+-   ...：robyn_outputs()に渡すパラメータ。
+
+## モデルの選択
+
+-   パレート最適解によるモデル候補数が多い場合
+
+-   k-meansクラスタリングによって類似した解をまとめる
+
+-   k=1からk=20までの範囲でWSS(Within Group Sum of Squares)を計算して「最適なk」を自動選択(kを手動で設定することも可能)
+
+-   k個のクラスタ内でnormalized combined errors(NRMSE, DECOM.RSSD, calibrationの場合はMAPE)が最も小さいモデルを選択
+
+    -   NRMSE (Normalized Root Mean Square Error)：予実誤差
+
+    -   DECOMP.RSSD (Decomposition Root Sum Square Distance)：広告効果シェアと予算シェアの乖離
+
+```{r}
+best_model_cluster = 
+  OutputCollect$clusters$data %>% 
+  tibble() %>% 
+  filter(top_sol == TRUE)
+
+select_model <- 
+  best_model_cluster %>% 
+  slice_max(nrmse) %>% 
+  pull(solID)
+```
+
+## 予算配分
+
+-   ここ追記
+
+```{r}
+#| eval: false
+
+# 予算配分を計算
+AllocatorCollect <- robyn_allocator(
+  InputCollect = InputCollect,
+  OutputCollect = OutputCollect,
+  select_model = select_model,
+  scenario = "max_historical_response",
+  channel_constr_low = 0.7,
+  channel_constr_up = c(1.2, 1.5, 1.5, 1.5, 1.5),
+  export = TRUE,
+  date_min = "2016-11-21",
+  date_max = "2018-08-20"
+)
+
+# 保存
+AllocatorCollect %>% write_rds("model/AllocatorCollect.rds")
+```
+
+```{r}
+AllocatorCollect = read_rds("model/AllocatorCollect.rds")
+print(AllocatorCollect)
+plot(AllocatorCollect)
+```
+
+## 特定条件でのレスポンス
+
+\`robyn_response\`\`：指定されたモデル(初期モデル/リフレッシュモデルなど)から、指定されたpaid_media_varsの指定された支出レベルのレスポンスを返す。
+
+-   robyn_object：Robynオブジェクトのパス
+
+-   select_build：デフォルトは最新のモデルビルド。 select_build = 0は初期モデル。select_build = 1は最新のリフレッシュモデル。
+
+-   media_metric：メディア変数を選択。paid_media_spends、paid_media_vars、organic_varsから1つの値を選択する必要があります
+
+-   select_model：モデルのSolIDで指定。
+
+-   dt_hyppar：robyn_objectを指定しない場合はOutputCollect\$resultHypParamを使用。
+
+-   dt_coef：robyn_objectを指定しない場合はOutputCollect\$xDecompAggを使用。
+
+-   InputCollect：モデルのすべての入力パラメータ。
+
+-   OutputCollect：すべてのモデル結果。
+
+-   quiet：メッセージを表示しないようにするか。
+
+```{r}
+Spend <- 60000
+Response <- robyn_response(
+  InputCollect = InputCollect,
+  OutputCollect = OutputCollect,
+  select_model = select_model,
+  media_metric = "search_S",
+  metric_value = Spend
+)
+
+Response$response / Spend
+Response$plot
+```
+
+# アウトプットイメージ
+
+## 1
+
+```{r}
+p_load(upstartr)
+p_load(lares)
+p_load(jsonlite)
+
+myOnePager <- robyn_onepagers(InputCollect, OutputCollect, select_model, export = FALSE)
+
+plotWaterfallLoop = 
+  myOnePager[[select_model]]$patches$plots[[1]]$data %>% 
+  tibble() 
+
+p_waterfall = 
+  ggplot(plotWaterfallLoop, aes(x = .data$id, fill = .data$sign)) +
+  geom_rect(aes(
+    x = .data$rn, 
+    xmin = .data$id - 0.45, 
+    xmax = .data$id + 0.45,
+    ymin = .data$end, 
+    ymax = .data$start
+    ), 
+    stat = "identity") +
+  scale_x_discrete("", breaks = levels(plotWaterfallLoop$rn), labels = plotWaterfallLoop$rn) +
+  scale_y_percent() +
+  # scale_fill_manual(values = c("Positive" = "#59B3D2", "Negative" = "#E5586E")) +
+  # scale_colour_manual(values = c("Positive" = "#59B3D2", "Negative" = "#E5586E")) +
+  theme_lares(legend = "top") +
+  geom_text(mapping = aes(
+    label = paste0(
+      formatNum(.data$xDecompAgg, abbr = TRUE),
+      "\n", round(.data$xDecompPerc * 100, 1), "%"
+    ),
+    y = rowSums(cbind(.data$end, .data$xDecompPerc / 2))
+  ), fontface = "bold", lineheight = .7) +
+  coord_flip() +
+  labs(
+    title = "Response Decomposition Waterfall by Predictor",
+    x = NULL, y = NULL, fill = "Sign"
+  )
+
+p_waterfall
+
+# dat_waterfall = plotWaterfallLoop
+# dat_waterfall %>% write.csv("./output/dat_waterfall.csv", row.names = FALSE)
+# jsn_waterfall = dat_waterfall %>% toJSON()
+# jsn_waterfall %>% write_json("./output/jsn_waterfall.json")
+```
+
+# MEMO
+
+## Objective convergence by iterations quantiles
+
+x000回繰り返して、DECOMP.RSSDとNRMSEが一定の値に収束していく様子を示す。
+
+## Multi-objective evolutionary performance
+
+多目的最適化のパレート最適を示す。
+
+## 相互相関
+
+```{r, eval=FALSE}
+dat %>%
+  plot_acf_diagnostics(
+    date, revenue, 
+    .ccf_vars = c(tv_s, competitor_sales_b)
+  )
+```
+
+```{r, eval=FALSE}
+OutputModels$trial1$resultCollect
+
+OutputCollect$OutputModels$trial1$resultCollect$resultHypParam
+
+OutputRobynPlot$pProphet$data
+OutputRobynPlot$pRidges1
+
+OutputCollect
+
+all_plots <- robyn_plots(InputCollect, OutputCollect)
+
+?scale_fill_manual
+
+
+
+```

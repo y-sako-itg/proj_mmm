@@ -1,0 +1,23 @@
+version: '3'
+
+services:
+  quarto:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: "${IMAGE_NAME}" # 任意のイメージ名を.envで指定
+    container_name: "${CONTAINER_NAME}" # 任意のコンテナ名を.envで指定
+    ports:
+      - "${PORTS_NUM_RSTUDIO}:8787" # 任意のポート番号を.envで指定
+      - "${PORTS_NUM_SHINY}:3838" # 任意のポート番号を.envで指定
+    environment:
+      - ROOT=TRUE
+      - PASSWORD=password
+      - DISABLE_AUTH=true
+      - ADD=shiny
+    volumes:
+      - /data:/home/rstudio/work
+      - /data:/home/vscode/work
+      - ../share:/srv/shiny-server
+    tty: true
+    stdin_open: true
