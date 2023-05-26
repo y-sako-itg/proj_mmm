@@ -1,14 +1,23 @@
 
 # プロジェクトテンプレート
 
-## これは何や!?
+## はじめに
 
-- データ分析プロジェクト用のテンプレート
+- これはMMMプロジェクト用のテンプレートです。
 
 - 任意のワークステーション上にテンプレートリポジトリをクローンして使う想定
 
 ```{bash}
+# for config
+$ export GIT_EMAIL=YOUR-EMAIL
+$ export GIT_USER=YOUR-USERNAME
+$ export GIT_TOKEN=YOUR-TOKEN
+$ export GIT_REPOSITORY=y-sako-itg/proj_mmm.git
 
+# for git
+$ git config --local user.name ${GIT_USER}
+$ git config --local user.email ${GIT_EMAIL}
+$ git clone https://${GIT_USER}:${GIT_TOKEN}@github.com/${GIT_REPOSITORY} .
 ```
 
 ```{}
@@ -51,11 +60,11 @@ $ cd dev
 
 ```{}
 # .env
-COMPOSE_PROJECT_NAME=quarto_common  # プロジェクト名(任意)
-IMAGE_NAME=quarto_common            # イメージ名(任意)
-CONTAINER_NAME=quarto_common        # コンテナ名(任意)
-PORTS_NUM_RSTUDIO=8901              # RStudio用のポート番号(空きポートを選択)
-PORTS_NUM_SHINY=8902                # Shiny用のポート番号(空きポートを選択)
+COMPOSE_PROJECT_NAME=xxxx        # プロジェクト名(任意)
+IMAGE_NAME=xxxx                  # イメージ名(任意)
+CONTAINER_NAME=xxxx              # コンテナ名(任意)
+PORTS_NUM_RSTUDIO=xxxx           # RStudio用のポート番号(空きポートを選択)
+PORTS_NUM_SHINY=xxxx             # Shiny用のポート番号(空きポートを選択)
 ```
 
 ```{bash}
