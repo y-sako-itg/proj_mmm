@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 
-<title>MMM_with_Robyn</title>
+<title>MMM(Robyn)</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -3025,6 +3025,7 @@ vertical-align: -.125em;
   <ul>
   <li><a href="#はじめに" id="toc-はじめに" class="nav-link active" data-scroll-target="#はじめに"><span class="header-section-number">1</span> はじめに</a></li>
   <li><a href="#環境設定" id="toc-環境設定" class="nav-link" data-scroll-target="#環境設定"><span class="header-section-number">2</span> 環境設定</a></li>
+  <li><a href="#追記予定" id="toc-追記予定" class="nav-link" data-scroll-target="#追記予定"><span class="header-section-number">3</span> 追記予定</a></li>
   </ul>
 </nav>
 </div>
@@ -3032,7 +3033,7 @@ vertical-align: -.125em;
 
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
-<h1 class="title">MMM_with_Robyn</h1>
+<h1 class="title">MMM(Robyn)</h1>
 </div>
 
 
@@ -3057,7 +3058,7 @@ vertical-align: -.125em;
 <h1 data-number="2"><span class="header-section-number">2</span> 環境設定</h1>
 <ul>
 <li><p><code>nevergrad</code>用にminicondaをインストール</p></li>
-<li><p><code>Robyn</code>用の仮想環境を作成してセットアップしておきます</p></li>
+<li><p><code>Robyn</code>用の仮想環境を作成してセットアップ</p></li>
 </ul>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co"># condaでrobyn用の仮想環境を作成(初回は実行)</span></span>
@@ -3074,7 +3075,7 @@ vertical-align: -.125em;
 <span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="fu">use_miniconda</span>(<span class="st">&#39;mmm_robyn&#39;</span>, <span class="at">required =</span> <span class="cn">TRUE</span>) <span class="co"># py_discover_config()</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <ul>
-<li><code>Robyn</code>に必要な諸々の設定</li>
+<li>汎用設定</li>
 </ul>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># ライブラリ</span></span>
@@ -3092,9 +3093,16 @@ vertical-align: -.125em;
 <span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a><span class="fu">Sys.setenv</span>(<span class="at">R_FUTURE_FORK_ENABLE =</span> <span class="st">&quot;true&quot;</span>)</span>
 <span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a><span class="fu">options</span>(<span class="at">future.fork.enable =</span> <span class="cn">TRUE</span>)</span>
 <span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a><span class="co"># モデリング関連のディレクトリ</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a><span class="co"># モデル管理用</span></span>
 <span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>path_model <span class="ot">&lt;-</span> <span class="st">&quot;model/&quot;</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
+</section>
+<section id="追記予定" class="level1" data-number="3">
+<h1 data-number="3"><span class="header-section-number">3</span> 追記予定</h1>
+<ul>
+<li><p>サンプルコード</p></li>
+<li><p>簡単な解説</p></li>
+</ul>
 </section>
 
 </main>

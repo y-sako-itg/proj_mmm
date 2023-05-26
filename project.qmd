@@ -1,5 +1,5 @@
 ---
-title: "MMM_with_Robyn"
+title: "MMM（Robyn）"
 format:
   html:
     theme: default
@@ -22,13 +22,13 @@ editor_options:
 
 # はじめに
 
--   この資料はRobynでのMMMに関するドキュメントです
+-   この資料はRobynでのMMMに関するサンプルドキュメントです
 
 # 環境設定
 
 -   `nevergrad`用にminicondaをインストール
 
--   `Robyn`用の仮想環境を作成してセットアップしておきます
+-   `Robyn`用の仮想環境を作成してセットアップ
 
 ```{r}
 #| eval: false
@@ -48,7 +48,7 @@ Sys.setenv(RETICULATE_PYTHON = "/root/.local/share/r-miniconda/envs/mmm_robyn/bi
 use_miniconda('mmm_robyn', required = TRUE) # py_discover_config()
 ```
 
--   `Robyn`に必要な諸々の設定
+-   汎用設定まで
 
 ```{r}
 # ライブラリ
@@ -66,7 +66,7 @@ p_load(plotly)
 Sys.setenv(R_FUTURE_FORK_ENABLE = "true")
 options(future.fork.enable = TRUE)
 
-# モデリング関連のディレクトリ
+# モデル管理用
 path_model <- "model/"
 ```
 
